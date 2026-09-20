@@ -1,45 +1,60 @@
 // app/page.tsx
-"use client";
+'use client';
 
-import { useState } from "react";
-import { Results, type AnalysisResult } from "./components/results";
+import { useState, useEffect } from 'react';
+import { Results, type AnalysisResult } from './components/results';
+
+const STEPS = [
+  'Connecting to the site',
+  'Loading the page',
+  'Collecting resources',
+  'Analyzing performance',
+  'Generating recommendations',
+];
 
 export default function Home() {
-  const [url, setUrl] = useState("");
-  const [status, setStatus] = useState<"idle" | "loading" | "error" | "done">(
-    "idle",
-  );
+  const [url, setUrl] = useState('');
+  const [status, setStatus] = useState<'idle' | 'loading' | 'error' | 'done'>('idle');
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [loadingStep, setLoadingStep] = useState(0);
+
+  useEffect(() => {
+    if (status !== 'loading') {
+      setLoadingStep(0);
+      return;
+    }
+    const interval = setInterval(() => {
+      setLoadingStep((step) => Math.min(step + 1, STEPS.length - 1));
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [status]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setStatus("loading");
+    setStatus('loading');
     setError(null);
 
     try {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/analyze`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ url }),
-        },
-      );
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/analyze`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url }),
+      });
 
       const data = await res.json();
 
       if (!res.ok) {
-        setError(data.error ?? "Something went wrong");
-        setStatus("error");
+        setError(data.error ?? 'Something went wrong');
+        setStatus('error');
         return;
       }
 
       setResult(data);
-      setStatus("done");
+      setStatus('done');
     } catch {
-      setError("Could not reach the server");
-      setStatus("error");
+      setError('Could not reach the server');
+      setStatus('error');
     }
   }
 
@@ -52,10 +67,7 @@ export default function Home() {
         <p className="text-ink/70 text-lg mb-10">
           See what's slowing your website down.
         </p>
-        <form
-          onSubmit={handleSubmit}
-          className="flex flex-col sm:flex-row gap-4 items-stretch"
-        >
+        <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-4 items-stretch">
           <input
             type="url"
             required
@@ -66,17 +78,30 @@ export default function Home() {
           />
           <button
             type="submit"
-            disabled={status === "loading"}
+            disabled={status === 'loading'}
             className="bg-ink text-paper px-6 py-3 rounded-lg font-body font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
           >
-            {status === "loading" ? "Analyzing…" : "Analyze"}
+            {status === 'loading' ? 'Analyzing…' : 'Analyze'}
           </button>
         </form>
 
-        {status === "error" && <p className="mt-6 text-alert">{error}</p>}
+        {status === 'error' && <p className="mt-6 text-alert">{error}</p>}
+
+        {status === 'loading' && (
+          <ul className="mt-10 text-left inline-block">
+            {STEPS.map((step, i) => (
+              <li key={step} className="flex items-center gap-2 py-1">
+                <span className="w-4 text-ink/60">
+                  {i < loadingStep ? '✓' : i === loadingStep ? '●' : '○'}
+                </span>
+                <span className={i <= loadingStep ? 'text-ink' : 'text-ink/40'}>{step}</span>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
 
-      {status === "done" && result && (
+      {status === 'done' && result && (
         <div className="max-w-xl w-full">
           <Results result={result} />
         </div>
